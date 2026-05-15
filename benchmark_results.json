@@ -1,0 +1,62 @@
+{
+  "timestamp": "2026-05-15 22:33:54",
+  "database": "dl_benhvien",
+  "results": [
+    {
+      "name": "Single Index (SDT)",
+      "truoc": 1.1868666721663128,
+      "sau": 0.8076333324424922,
+      "speedup": 1.4695612779835632,
+      "explain_truoc": "select_type=SIMPLE | table=benhnhan | type=ref | possible_keys=idx_benhnhan_sdt | key=idx_benhnhan_sdt | rows=1 | Extra=None",
+      "explain_sau": "select_type=SIMPLE | table=benhnhan | type=ref | possible_keys=idx_benhnhan_sdt,idx_bench_sdt | key=idx_benhnhan_sdt | rows=1 | Extra=None"
+    },
+    {
+      "name": "Composite Index",
+      "truoc": 0.6347000016830862,
+      "sau": 0.6554999854415655,
+      "speedup": 0.9682685214028375,
+      "explain_truoc": "select_type=SIMPLE | table=lichhen | type=ref | possible_keys=MaBN,idx_lichhen_trangthai,idx_lichhen_mabn,idx_lichhen_bn_status | key=MaBN | rows=1 | Extra=Using where; Using filesort",
+      "explain_sau": "select_type=SIMPLE | table=lichhen | type=range | possible_keys=MaBN,idx_lichhen_trangthai,idx_lichhen_mabn,idx_lichhen_bn_status,idx_bench_composite | key=idx_bench_composite | rows=1 | Extra=Using where; Backward index scan; Using index"
+    },
+    {
+      "name": "Covering Index",
+      "truoc": 378.2381666630196,
+      "sau": 389.057699998375,
+      "speedup": 0.9721904145955713,
+      "explain_truoc": "select_type=SIMPLE | table=lichhen | type=index | possible_keys=idx_lichhen_trangthai,idx_lichhen_bn_status | key=idx_lichhen_trangthai | rows=796001 | Extra=Using index",
+      "explain_sau": "select_type=SIMPLE | table=lichhen | type=index | possible_keys=idx_lichhen_trangthai,idx_lichhen_bn_status,idx_bench_covering | key=idx_lichhen_trangthai | rows=796001 | Extra=Using index"
+    },
+    {
+      "name": "SELECT * vs Columns",
+      "truoc": 0.83559998893179,
+      "sau": 0.7041000062599778,
+      "speedup": 1.186763217586534,
+      "explain_truoc": "select_type=SIMPLE | table=benhnhan | type=ALL | possible_keys=None | key=None | rows=305280 | Extra=Using where",
+      "explain_sau": "select_type=SIMPLE | table=benhnhan | type=ALL | possible_keys=None | key=None | rows=305280 | Extra=Using where"
+    },
+    {
+      "name": "IN vs EXISTS",
+      "truoc": 1.8984666579247762,
+      "sau": 0.9374333312734962,
+      "speedup": 2.0251751186889457,
+      "explain_truoc": "select_type=SIMPLE | table=benhnhan | type=ALL | possible_keys=PRIMARY | key=None | rows=305280 | Extra=None",
+      "explain_sau": "select_type=SIMPLE | table=bn | type=ALL | possible_keys=PRIMARY | key=None | rows=305280 | Extra=None"
+    },
+    {
+      "name": "Function on Index",
+      "truoc": 1.1683666671160609,
+      "sau": 1.04996666777879,
+      "speedup": 1.1127654838679275,
+      "explain_truoc": "select_type=SIMPLE | table=lichhen | type=ALL | possible_keys=None | key=None | rows=796001 | Extra=Using where",
+      "explain_sau": "select_type=SIMPLE | table=lichhen | type=ALL | possible_keys=None | key=None | rows=796001 | Extra=Using where"
+    },
+    {
+      "name": "CTE vs Subquery",
+      "truoc": 5.856733332620934,
+      "sau": 263.979766673098,
+      "speedup": 0.02218629634548347,
+      "explain_truoc": "select_type=PRIMARY | table=bs | type=index | possible_keys=None | key=MaNV | rows=125 | Extra=Using index",
+      "explain_sau": "select_type=PRIMARY | table=bs | type=index | possible_keys=None | key=MaNV | rows=125 | Extra=Using index"
+    }
+  ]
+}

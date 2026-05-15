@@ -125,7 +125,8 @@ CREATE INDEX idx_benhnhan_sdt ON benhnhan(SDT);
 |--------|------------|-----------|-----------|
 | So hang quet | 308,547 | 1 | 308,547x |
 | Loai truy van | ALL (Full Scan) | ref (Index) | - |
-| Thoi gian thuc te | ~480ms | ~3ms | **160x** |
+| Thoi gian (ly thuyet, khong co index) | ~480ms | ~3ms | **160x** |
+| Thoi gian (thuc te, DB da co index) | 1.187ms | 0.808ms | **1.47x** |
 | CPU Usage | Cao | Thap | - |
 | I/O Disk | Doc ~180MB | Doc ~2KB | **90,000x** |
 
@@ -191,7 +192,7 @@ ON lichhen(MaBN, TrangThai, ThoiGianDat);
 **Phan tich**:
 - `Using index` = Covering Index (khong can doc bang chinh)
 - Khong con `Using filesort` (da duoc sap xep trong index)
-- Thoi gian: **~12ms**
+- Thoi gian (ly thuyet): **~12ms** | Thoi gian (thuc te, DB da co index): **0.655ms**
 
 #### Bang so sanh
 
@@ -200,7 +201,8 @@ ON lichhen(MaBN, TrangThai, ThoiGianDat);
 | Index su dung | MaBN (don le) | Composite (3 cot) | - |
 | Filesort | Co | Khong | Loai bo sort |
 | Covering | Khong | Co | Giam I/O |
-| Thoi gian | ~85ms | ~12ms | **7x** |
+| Thoi gian (ly thuyet, khong co index tot) | ~85ms | ~12ms | **7x** |
+| Thoi gian (thuc te, DB da co index) | 0.635ms | 0.655ms | **0.97x** |
 | Rows examined | ~15 | ~3 | **5x** |
 
 ### 2.4. Vi du 3: Covering Index - Thong ke trang thai lich hen
@@ -234,7 +236,8 @@ ON lichhen(TrangThai, MaLich);
 **Uu diem**: 
 - `Using index` = Chi doc index, khong doc bang chinh
 - Giam I/O dang ke
-- Thoi gian giam tu ~2.5s xuong ~800ms
+- Thoi gian (ly thuyet): giam tu ~2.5s xuong ~800ms
+- Thoi gian (thuc te, DB da co index trang thai): 378.238ms -> 389.058ms (khong cai thien do da co `idx_lichhen_trangthai`)
 
 ---
 
@@ -271,6 +274,11 @@ LIMIT 100;
 - Tong: ~308 bytes/hang x 100 hang = ~30KB
 - **Giam 67% luong du lieu**
 
+**Ket qua benchmark thuc te**:
+- SELECT * (LIMIT 100): 0.836ms
+- SELECT columns (LIMIT 100): 0.704ms
+- Cai thien: **1.19x** (su khac biet nho do LIMIT 100 va PK lookup, nhung van chung minh giam I/O)
+
 **Nang cao**: Neu co index tren (GioiTinh, MaBN, TenBN, NgaySinh) -> Co the dung Covering Index
 
 ### 3.2. Nguyen tac 2: Dung EXISTS thay IN cho tap lon
@@ -301,7 +309,7 @@ WHERE MaBN IN (
 **Van de**: 
 - `DEPENDENT SUBQUERY` chay lai cho moi hang benhnhan
 - Tao tam bang, so sanh toan bo
-- Thoi gian: **~3.2s**
+- Thoi gian (ly thuyet): **~3.2s** | Thoi gian (thuc te, co index MaBN): **1.898ms**
 
 **Toi uu (EXISTS)**:
 ```sql
@@ -329,9 +337,9 @@ WHERE EXISTS (
 - EXISTS dung Semi-Join
 - Dung tim kiem ngay khi tim thay 1 hang phu hop
 - Khong tao tam bang
-- Thoi gian: **~450ms**
+- Thoi gian (ly thuyet): **~450ms** | Thoi gian (thuc te): **0.937ms**
 
-**Cai thien**: **~7x nhanh hon**
+**Cai thien**: Ly thuyet **~7x**, Thuc te **2.03x**
 
 ### 3.3. Nguyen tac 3: Tuyet doi tranh ham tren cot da index
 
@@ -374,8 +382,13 @@ Extra: Using where
 
 **Cai thien**: 
 - Tu 308K -> 1.2K hang (**256x it hon**)
-- Thoi gian: **~15ms**
-- **~35x nhanh hon**
+- Thoi gian (ly thuyet): **~15ms**
+- **~35x nhanh hon** (ly thuyet)
+
+**Ket qua benchmark thuc te (tren `lichhen` voi LIMIT 100)**:
+- Tranh ham `YEAR(ThoiGianDat)`: 1.168ms
+- Range scan `ThoiGianDat >= '2025-01-01'`: 1.050ms
+- Cai thien thuc te: **1.11x** (nho hon ly thuyet do da co index `idx_lichhen_thoigianden` va LIMIT 100)
 
 ### 3.4. Nguyen tac 4: JOIN dung thu tu va dung kieu
 
@@ -437,7 +450,8 @@ LIMIT 10;
 - Subquery 1: Full Scan phieukham x 120 lan = **~71M hang doc**
 - Subquery 2: Full Scan + LIKE x 120 lan
 - Subquery 3: Full Scan + LIKE x 120 lan
-- Thoi gian: **~8.5s**
+- Thoi gian (ly thuyet, khong co index): **~8.5s**
+- Thoi gian (thuc te, co `idx_phieukham_mabs`): **5.857ms**
 
 **Toi uu (CTE 1 lan tinh toan)**:
 ```sql
@@ -465,9 +479,10 @@ LIMIT 10;
 **Phan tich**:
 - Chi GROUP BY phieukham 1 lan: **~597K hang**
 - JOIN voi bang ket qua nho (~120 hang)
-- Thoi gian: **~180ms**
+- Thoi gian (ly thuyet): **~180ms**
+- Thoi gian (thuc te): **263.980ms**
 
-**Cai thien**: **~47x nhanh hon**
+**Cai thien**: Ly thuyet **~47x nhanh hon**, nhung thuc te **CTE cham hon 45x** do `phieukham` da co index `idx_phieukham_mabs`, khien subquery lap tan dung index cuc tot cho 125 bac si.
 
 ### 4.2. Recursive CTE (Vi du mo rong)
 
@@ -678,7 +693,8 @@ type: range
 key: idx_ngaylap
 rows: ~100000
 Extra: Using where
-Thoi gian: ~180ms
+Thoi gian (ly thuyet): ~180ms
+Thoi gian (thuc te): 188.045ms
 ```
 
 **Bang co partition**:
@@ -695,10 +711,11 @@ type: range
 key: PRIMARY
 rows: ~100000
 Extra: Using where
-Thoi gian: ~35ms
+Thoi gian (ly thuyet): ~35ms
+Thoi gian (thuc te): 220.542ms (cham hon do overhead partition voi du lieu hien tai)
 ```
 
-**Cai thien**: **~5x nhanh hon** + Maintenance de dang
+**Cai thien**: Ly thuyet **~5x nhanh hon**, thuc te **cham hon 1.17x** (220.542ms vs 188.045ms). Partition van co loi ich ve maintenance (DROP partition nhanh hon DELETE rat nhieu).
 
 #### Truy van 2: Liet ke hoa don thang 5/2025
 
@@ -706,7 +723,8 @@ Thoi gian: ~35ms
 |--------|----------------|--------------|-----------|
 | Partitions scanned | 1 (toan bo) | 1 (p202505) | Chi quet 1/6 |
 | Rows scanned | 597,162 | ~99,527 | **6x** |
-| Thoi gian | ~250ms | ~45ms | **5.5x** |
+| Thoi gian (ly thuyet) | ~250ms | ~45ms | **5.5x** |
+| Thoi gian (thuc te) | 188.045ms | 220.542ms | **0.85x** (cham hon) |
 | Memory usage | Cao | Thap | - |
 
 ### 6.4. Maintenance voi Partition
@@ -876,18 +894,25 @@ WHERE NgayLap >= '2025-03-01' AND NgayLap < '2025-04-01';
 
 | Ky thuat toi uu | Truoc (ms) | Sau (ms) | Cai thien | Do phuc tap |
 |----------------|-----------|----------|-----------|-------------|
-| **Single Index (SDT)** | 0.489 | 0.374 | **1.31x** | Thap |
-| **Composite Index** | 0.268 | 1.609 | **0.17x** (*) | Thap |
-| **SELECT * vs Columns** | 0.523 | 0.575 | **0.91x** (**) | Thap |
-| **IN vs EXISTS** | 0.645 | 0.415 | **1.55x** | Thap |
-| **Tranh ham tren cot** | 4218.799 | 1467.593 | **2.87x** | Thap |
-| **CTE thay Subquery lap** | - | - | **~3-5x** (uoc tinh) | Trung binh |
+| **Single Index (SDT)** | 1.187 | 0.808 | **1.47x** | Thap |
+| **Composite Index** | 0.635 | 0.655 | **0.97x** (*) | Thap |
+| **Covering Index** | 378.238 | 389.058 | **0.97x** (**) | Thap |
+| **SELECT * vs Columns** | 0.836 | 0.704 | **1.19x** | Thap |
+| **IN vs EXISTS** | 1.898 | 0.937 | **2.03x** | Thap |
+| **Tranh ham tren cot** | 1.168 | 1.050 | **1.11x** | Thap |
+| **CTE thay Subquery lap** | 5.857 | 263.980 | **0.02x** (***) | Trung binh |
 | **Thay doi kieu du lieu** | - | - | **~2x** (uoc tinh) | Cao |
-| **Partition (Range)** | - | - | **~2-5x** (uoc tinh) | Trung binh |
+| **Partition (Range)** | 188.045 | 220.542 | **0.85x** (thuc te) | Trung binh |
 
-> **(*)** Composite Index cho ket qua kem hon vi bang `lichhen` da co index `MaBN` (FK). Query truoc da su dung index nay nen chi can loc them ~15 hang. Composite index moi khong duoc chon vi optimizer danh gia index cu du tot.
+> **(*)** Composite Index khong cai thien do bang `lichhen` da co index `MaBN` (FK) va `idx_lichhen_bn_status`. Query truoc da su dung index nay du tot.
 >
-> **(**)** SELECT * vs Columns cho thoi gian tuong duong vi query co `LIMIT 100` va dung `PRIMARY KEY lookup`. Su khac biet se ro hon khi khong co LIMIT hoac quet nhieu hang hon.
+> **(**)** Covering Index khong cai thien do da co index `idx_lichhen_trangthai`. MySQL 8.0 optimizer chon index cu thay vi covering index moi.
+>
+> **(***)** CTE cham hon do `phieukham` da co index `idx_phieukham_mabs`. Voi chi 125 bac si, subquery lap lai tan dung index tot hon viec GROUP BY toan bo 597K ban ghi.
+>
+> **(****)** SELECT * vs Columns co su khac biet nho do LIMIT 100 va PK lookup. Su khac biet se ro hon khi khong co LIMIT.
+>
+> **(*****)** Partition khong cai thien toc do truy van trong test nay (tham chi cham hon 1.17x) do `hoadon` da co index `idx_ngaylap` tot va overhead cua viec quan ly nhieu partition. Loi ich chinh cua partition la maintenance (DROP partition nhanh hon DELETE) va quan ly du lieu lich su.
 
 ### Khuyen nghi trien khai
 
@@ -918,11 +943,11 @@ WHERE NgayLap >= '2025-03-01' AND NgayLap < '2025-04-01';
 
 ## PHU LUC A: KET QUA CHAY THUC TE
 
-**Thoi gian chay:** 2026-05-15 16:11:51
+**Thoi gian chay:** 2026-05-15 16:30:00
 
-**Moi truong:** MySQL tren may local
+**Moi truong:** MySQL 8.0.45 tren may local
 
-**Phuong phap do:** Python `time.perf_counter()`, chay 2 lan (1 warmup + 1 do)
+**Phuong phap do:** Python `time.perf_counter()`, chay 3 lan (1 warmup + 2 do, lay trung binh)
 
 ---
 
@@ -930,11 +955,14 @@ WHERE NgayLap >= '2025-03-01' AND NgayLap < '2025-04-01';
 
 | Ky thuat | Truoc toi uu (ms) | Sau toi uu (ms) | Tang toc |
 |----------|-------------------|-----------------|----------|
-| Single Index (SDT) | 0.489 | 0.374 | 1.31x |
-| Composite Index | 0.268 | 1.609 | 0.17x |
-| SELECT * vs Columns | 0.523 | 0.575 | 0.91x |
-| IN vs EXISTS | 0.645 | 0.415 | 1.55x |
-| Function on Index | 4218.799 | 1467.593 | 2.87x |
+| Single Index (SDT) | 1.187 | 0.808 | 1.47x |
+| Composite Index | 0.635 | 0.655 | 0.97x |
+| Covering Index | 378.238 | 389.058 | 0.97x |
+| SELECT * vs Columns | 0.836 | 0.704 | 1.19x |
+| IN vs EXISTS | 1.898 | 0.937 | 2.03x |
+| Function on Index | 1.168 | 1.050 | 1.11x |
+| CTE vs Subquery | 5.857 | 263.980 | 0.02x |
+| Partition (Range) | 188.045 | 220.542 | 0.85x |
 
 ---
 
@@ -1091,11 +1119,14 @@ SHOW PROFILE FOR QUERY [Query_ID];
 
 | STT | Ky thuat | Truoc toi uu (ms) | Sau toi uu (ms) | Tang toc | Dung cho slide |
 |-----|----------|-------------------|-----------------|----------|----------------|
-| 1 | Single Index (SDT) | 0.489 | 0.374 | 1.31x | Slide 3 |
-| 2 | Composite Index | 0.268 | 1.609 | 0.17x | Slide 4 |
-| 3 | SELECT * vs Columns | 0.523 | 0.575 | 0.91x | Slide 5 |
-| 4 | IN vs EXISTS | 0.645 | 0.415 | 1.55x | Slide 6 |
-| 5 | Function on Index | 4218.799 | 1467.593 | 2.87x | Slide 7 |
+| 1 | Single Index (SDT) | 1.187 | 0.808 | 1.47x | Slide 3 |
+| 2 | Composite Index | 0.635 | 0.655 | 0.97x | Slide 4 |
+| 3 | Covering Index | 378.238 | 389.058 | 0.97x | Slide 5 |
+| 4 | SELECT * vs Columns | 0.836 | 0.704 | 1.19x | Slide 6 |
+| 5 | IN vs EXISTS | 1.898 | 0.937 | 2.03x | Slide 7 |
+| 6 | Function on Index | 1.168 | 1.050 | 1.11x | Slide 8 |
+| 7 | CTE vs Subquery | 5.857 | 263.980 | 0.02x | Slide 9 |
+| 8 | Partition (Range) | 188.045 | 220.542 | 0.85x | Slide 11 |
 
 ### B.5. Goi y noi dung tung slide
 
