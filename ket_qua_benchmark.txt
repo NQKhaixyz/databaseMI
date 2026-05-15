@@ -1,0 +1,32 @@
+KET QUA BENCHMARK - NHOM 18
+Thoi gian: 2026-05-15
+Phuong phap: Python time.perf_counter()
+Database: dl_benhvien (5,129,780 ban ghi)
+
+1. Single Index (SDT):
+   Truoc: 0.489 ms
+   Sau: 0.374 ms
+   Tang toc: 1.31x
+
+2. Composite Index:
+   Truoc: 0.268 ms
+   Sau: 1.609 ms
+   Tang toc: 0.17x
+   Ghi chu: Khong cai thien do da co index MaBN (FK)
+
+3. SELECT * vs Columns:
+   Truoc: 0.523 ms
+   Sau: 0.575 ms
+   Tang toc: 0.91x
+   Ghi chu: Tuong duong do LIMIT 100 va PK lookup
+
+4. IN vs EXISTS:
+   Truoc: 0.645 ms
+   Sau: 0.415 ms
+   Tang toc: 1.55x
+
+5. Function on Index:
+   Truoc: 4218.799 ms
+   Sau: 1467.593 ms
+   Tang toc: 2.87x
+   Ghi chu: Cai thien ro ret khi tranh dung ham YEAR()
